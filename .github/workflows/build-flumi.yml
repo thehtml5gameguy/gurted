@@ -33,6 +33,10 @@ jobs:
             platform: windows
             godot-version: "4.4.1"
             export-preset: "Windows Desktop"
+          - os: macos-latest
+            platform: macos
+            godot-version: "4.4.1"
+            export-preset: "macOS"
 
     steps:
     - uses: actions/checkout@v4
@@ -54,6 +58,7 @@ jobs:
         path: |
           ~/.local/share/godot
           ~/AppData/Roaming/Godot
+          ~/Library/Application Support/Godot
         key: ${{ runner.os }}-godot-${{ matrix.godot-version }}
 
     - name: Setup Godot
@@ -80,6 +85,9 @@ jobs:
             ;;
           linux)
             cp gdextension-artifacts/libgurt_godot.so flumi/addons/gurt-protocol/bin/${{ matrix.platform }}/
+            ;;
+          macos)
+            cp gdextension-artifacts/libgurt_godot.dylib flumi/addons/gurt-protocol/bin/${{ matrix.platform }}/
             ;;
         esac
 
@@ -131,10 +139,26 @@ jobs:
               godot --headless --export-release "${{ matrix.export-preset }}" ../flumi-builds/${{ matrix.platform }}/Flumi
             }
             ;;
+          macos)
+            echo "Exporting for macOS..."
+            godot --headless --export-release "${{ matrix.export-preset }}" ../flumi-builds/${{ matrix.platform }}/Flumi.app --verbose || {
+              echo "Export failed with exit code $?"
+              echo "Trying without --verbose flag..."
+              godot --headless --export-release "${{ matrix.export-preset }}" ../flumi-builds/${{ matrix.platform }}/Flumi.app
+            }
+            ;;
         esac
         
         # Verify the export was successful
-        if [ -f "../flumi-builds/${{ matrix.platform }}/Flumi${{ matrix.platform == 'windows' && '.exe' || '' }}" ]; then
+        if [ "${{ matrix.platform }}" = "macos" ]; then
+          output="../flumi-builds/${{ matrix.platform }}/Flumi.app"
+        elif [ "${{ matrix.platform }}" = "windows" ]; then
+          output="../flumi-builds/${{ matrix.platform }}/Flumi.exe"
+        else
+          output="../flumi-builds/${{ matrix.platform }}/Flumi"
+        fi
+
+        if [ -e "$output" ]; then
           echo "Export successful!"
           ls -la ../flumi-builds/${{ matrix.platform }}/
         else
